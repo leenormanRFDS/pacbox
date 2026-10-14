@@ -24,14 +24,6 @@
 .match img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;display:block;user-select:none}
 .match img.registered{width:1000px;height:auto;object-fit:fill;transform-origin:0 0}
 
-/* Satellite map (map.js) for the last two chapters, in the same shaped frame as the photographs. */
-.map{position:absolute;inset:0;opacity:0;clip-path:url(#architecture-mask);pointer-events:none;background:#d9cbb4}
-.map .cesium-widget,.map .cesium-widget canvas{width:100%;height:100%;display:block}
-.map-credits{position:absolute;top:calc(13% - 16px);right:2%;max-width:50%;text-align:right;opacity:0;font-size:8px;line-height:1.3;color:#355c79;pointer-events:auto}
-.map-credits .cesium-credit-logoContainer{display:none!important}
-.map-credits a{color:inherit}
-.panel h2 .together-2{display:inline;transition:none}
-
 /* ==========================================================================
    MOBILE  (phones and small tablets, up to 800px wide)
 
@@ -75,7 +67,6 @@
   #model-canvas{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%)}
   .presentation.ready .visual,.presentation.ready .visual-caption{transition:bottom .45s cubic-bezier(.22,.8,.24,1)}
 
-  .map-credits{top:calc(var(--head-h,86px) - 6px);right:12px;max-width:70%}
   .visual-caption{left:20px;right:20px;top:auto;bottom:calc(var(--dock) + var(--text-h,240px) + 12px);max-width:none;font-size:10px;letter-spacing:.1em}
 
   /* Text: anchored to the bottom, sized to be read at arm's length. */

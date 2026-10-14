@@ -2,7 +2,7 @@
 const panels=[...document.querySelectorAll('.panel')],anchors=[...document.querySelectorAll('.track>div[id]')],dots=[...document.querySelectorAll('.chapters a')];
 const a=document.querySelector('#photo-a'),b=document.querySelector('#photo-b'),mask=document.querySelector('#mask-path'),contour=document.querySelector('#contour-path'),caption=document.querySelector('#visual-caption'),motion=document.querySelector('#motion');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');let paused=reduced.matches,smooth=0,last=performance.now(),beat=-1;
-const photos=[195,195,'clinic',192,'training',198,194,197],labels=['THE CENTRE','CONSTRUCTION COMPLETE','HEALTH','EDUCATION','TRAINING','TOGETHER UNDER ONE ROOF','OUR COMMUNITIES','OUR PARTNERS'];
+const photos=[195,195,191,192,193,198,194,197],labels=['THE CENTRE','CONSTRUCTION COMPLETE','HEALTH','EDUCATION','TRAINING','TOGETHER UNDER ONE ROOF','OUR COMMUNITIES','OUR PARTNERS'];
 // Manual, normalized vector interpretations of observed architecture. These are
 // presentation masks, not survey-accurate architectural outlines.
 const shapes={corner:[.17,.06,.98,.94,.07,.02,.86,.76,.24,.14],band:[.21,.19,.98,.81,.10,.025,.78,.68,.32,.22],opening:[.26,.09,.98,.91,.09,.015,.84,.70,.30,.16]};
@@ -10,11 +10,7 @@ const shapeNames=['corner','band','corner','opening','opening','band','corner','
 // Phones get the 1200px photographs (about a third of the bytes); everything else gets 2200px.
 const phone=matchMedia('(max-width:800px)');
 function imageUrl(n){return `assets/PACRE-${n}-${phone.matches?1200:2200}.webp`}
-function setPhoto(node,n){node.style.backgroundImage=`url('${imageUrl(n)}')`;node.style.backgroundPosition=n===191?'43% 54%':n===198?'48% 53%':n===197?'53% 60%':n==='clinic'?'45% 40%':n==='training'?'66% 35%':'50% 50%'}
-// Photographs that are not project photography get their own caption.
-const photoCaptions={clinic:'RFDS PRIMARY HEALTH CARE',training:'RFDS RURAL & REMOTE RETRIEVAL COURSE'};
-const photoCaption=n=>photoCaptions[n]||`PROJECT PHOTOGRAPHY · PACRE-${n}${n===192?' · ARCHITECTURAL DETAIL':''}`;
-const together2=document.querySelector('.together-2'),mapEl=document.querySelector('#map'),mapCredits=document.querySelector('#map-credits');
+function setPhoto(node,n){node.style.backgroundImage=`url('${imageUrl(n)}')`;node.style.backgroundPosition=n===191?'43% 54%':n===198?'48% 53%':n===197?'53% 60%':'50% 50%'}
 function shape(v){const [x,y,r,bt,c,l,cy,ey,sy,ty]=v;const d=`M ${x} ${y} H ${r} V ${bt} H ${x} C ${c} ${bt} ${l} ${cy} ${l} ${ey} V ${sy} C ${l} ${ty} ${c} ${y} ${x} ${y} Z`;mask.setAttribute('d',d);contour.setAttribute('d',d.replace(/\d*\.?\d+/g,n=>String(+n*1000)))}
 // Phone layout: the visual takes whatever height is left once the header, the
 // chapter bar and the active text panel have been measured, so nothing can overlap.
@@ -34,25 +30,22 @@ panels.forEach((el,j)=>{el.style.opacity=j===i?String((i===0?1:ease(p/.10))*(i==
    model   the 3D model canvas
    The cut-outs are placed by model.js so they sit exactly on the model,
    which is what lets one dissolve into the other.                          */
-const ready=!!window.rfdsModelReady,mapReady=!!window.rfdsMapReady;let photoA=1,photoB=0,open=0,drone=0,model=0,sweep=1,push=1,map=0;
+const ready=!!window.rfdsModelReady;let photoA=1,photoB=0,open=0,drone=0,model=0,sweep=1,push=1;
 if(i===0){photoA=0;photoB=ease((p-.86)/.14);open=1-photoB}
 else if(i===1){if(ready){photoA=1-ease((p-.70)/.10);model=ease((p-.80)/.15);open=ease((p-.70)/.10)*(1-model)}}
 else if(i>=2&&i<=4){const photo=ready?ease((p-.48)/.18)*(1-ease((p-.90)/.10)):1;photoA=photo;model=ready?1-photo:0}
-else if(i===5){photoA=0;photoB=ease((p-.89)/.11);if(mapReady){map=photoB;photoB=0}if(ready){const r=ease((p-.55)/.17);model=1-r;drone=1-photoB;sweep=paused?1:r;if(paused)drone*=r;push=paused?1:1+.025*ease((p-.72)/.28)}else drone=1-photoB;if(mapReady)drone=(1-map)*(paused&&ready?ease((p-.55)/.17):1)}
+else if(i===5){photoA=0;photoB=ease((p-.89)/.11);if(ready){const r=ease((p-.55)/.17);model=1-r;drone=1-photoB;sweep=paused?1:r;if(paused)drone*=r;push=paused?1:1+.025*ease((p-.72)/.28)}else drone=1-photoB}
 else photoB=ease((p-.86)/.14);
 if(i>5)photoA=1-photoB;
-if(i>5&&mapReady){map=1;photoA=0;photoB=0}
-// "Together" arrives with the roof; "under one roof" arrives with the real building.
-together2.style.opacity=i===5&&!paused&&ready?String(ease((p-.55)/.17)):'1';
-mapEl.style.opacity=String(map);mapCredits.style.opacity=String(map);
 a.style.opacity=String(photoA);b.style.opacity=String(photoB);a.style.transform=paused?'none':`scale(${1.015-.015*ease(p)})`;
 openWrap.style.opacity=String(open);openWrap.style.transform=i===0&&!paused?`translate(0,${-3*ease(p)}%) scale(${1-.03*ease(p)})`:'none';
 droneWrap.style.opacity=String(drone);droneWrap.style.transform=`scale(${push})`;
 // The aerial photo appears from the roof down: a soft-edged mask sweeps over it.
 const edge=sweep>=1?'#000 100%':`#000 ${(sweep*118-18).toFixed(1)}%,transparent ${(sweep*118).toFixed(1)}%`;droneImg.style.webkitMaskImage=droneImg.style.maskImage=sweep>=1?'none':`linear-gradient(to bottom,${edge})`;
 const from=shapes[shapeNames[i]],to=shapes[shapeNames[Math.min(i+1,7)]],t=paused?0:ease((p-.82)/.18);shape(from.map((x,j)=>x+(to[j]-x)*t));
-canvas.style.opacity=String(model);contour.style.opacity=String(.35*Math.max(photoA,photoB,map));
-const top=Math.max(photoA,photoB,open,drone*sweep,model,map);caption.textContent=top===map&&map>0?(i>=7||(i===6&&p>.9)?'OUTBACK SOUTH AUSTRALIA · SATELLITE':'PORT AUGUSTA · SATELLITE'):top===model&&model>0?'V4 IVORY MODEL · SCHEMATIC PREVIEW':top===drone*sweep&&drone>0?'PROJECT PHOTOGRAPHY · AERIAL':top===open&&open>0?'PROJECT PHOTOGRAPHY · PACRE-198':top===photoB?photoCaption(photos[Math.min(i+1,7)]):photoCaption(photos[i]);
+canvas.style.opacity=String(model);contour.style.opacity=String(.35*Math.max(photoA,photoB));
+const top=Math.max(photoA,photoB,open,drone*sweep,model);
+caption.textContent=top===model&&model>0?'V4 IVORY MODEL · SCHEMATIC PREVIEW':top===drone*sweep&&drone>0?'PROJECT PHOTOGRAPHY · AERIAL':top===open&&open>0?'PROJECT PHOTOGRAPHY · PACRE-198':top===photoB?`PROJECT PHOTOGRAPHY · PACRE-${photos[Math.min(i+1,7)]}`:`PROJECT PHOTOGRAPHY · PACRE-${photos[i]}${i===3||i===4?' · ARCHITECTURAL DETAIL':''}`;
 const photoAlpha=1-model;
 window.rfdsStory={beat:i,local:p,paused,visible:(i>=2&&i<=5)||(i===1&&p>=.75),photoAlpha,modelAlpha:model};document.querySelector('#progress').style.width=`${100*clamp(scrollY/(document.querySelector('#journey').offsetHeight-innerHeight))}%`;requestAnimationFrame(update)}
 motion.onclick=()=>{paused=!paused;motion.textContent=paused?'Resume motion':'Pause motion';motion.setAttribute('aria-pressed',String(paused))};if(paused){motion.textContent='Resume motion';motion.setAttribute('aria-pressed','true')}
