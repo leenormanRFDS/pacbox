@@ -103,6 +103,7 @@ const OPENING = {
   ...CLOSED_LAYERS,
   frame: ['groundShell', 'upperShell', 'roof'],
   fillBleed: 1.04,            // on phones the ends may run just off the screen
+  anchorBottom: true,         // on phones, sit just above the headline rather than float mid-box
   pose: {az: 53.05, el: -6.67, dist: 90.77, target: [-0.02, 12.5, -0.01], fov: 100},
   photo: {id: 'photo-open', anchors: [
     [[-38.7, 0, -44], [0.6766, 0.4518]], [[-38.7, 0, 44], [0.0073, 0.4556]],
@@ -112,36 +113,39 @@ const OPENING = {
   ]}
 };
 
-// The floors separate into a stack with room to see into each one.
+// Health, Education and Training share the opening's camera direction (the
+// PACRE-198 pose, az 53, low and looking up). The camera stays near the ground
+// (lifting just enough to keep each floor readable), so that Together is a real
+// climb from the ground up to the drone photo's viewpoint.
 // Health: the ground floor in blue; Level 02 and the roof hover above it.
 const HEALTH = {
-  cam:       {az: 30, el: 36},
-  camNarrow: {az: 18, el: 40},
-  frame:     ['groundShell'],
-  fillNarrow:  0.96,
-  lift:      {upperShell: 46, upperRooms: 46, roof: 94},
+  cam:       {az: 53.05, el: 5},
+  camNarrow: {az: 53.05, el: 7},
+  frame:     ['groundShell', 'upperShell'],
+  fillNarrow:  0.94,
+  lift:      {upperShell: 30, upperRooms: 30, roof: 60},
   alpha:     {groundShell: 1, groundRooms: 0, upperShell: 1, upperRooms: 0, roof: 1},
   tint:      {groundShell: 1, upperShell: 0}
 };
 
 // Education (School of the Air): Level 02 in blue, between the ground floor and the roof.
 const EDUCATION = {
-  cam:       {az: 36, el: 34},
-  camNarrow: {az: 20, el: 40},
-  frame:     ['upperShell'],
-  fillNarrow:  0.96,
-  lift:      {upperShell: 28, upperRooms: 28, roof: 76},
+  cam:       {az: 53.05, el: -11},
+  camNarrow: {az: 53.05, el: -6},
+  frame:     ['groundShell', 'upperShell'],
+  fillNarrow:  0.94,
+  lift:      {upperShell: 26, upperRooms: 26, roof: 56},
   alpha:     {groundShell: 1, groundRooms: 0, upperShell: 1, upperRooms: 0, roof: 1},
   tint:      {groundShell: 0, upperShell: 1}
 };
 
 // Training: the same floor from the opposite corner.
 const TRAINING = {
-  cam:       {az: -34, el: 40},
-  camNarrow: {az: -20, el: 44},
-  frame:     ['upperShell'],
-  fillNarrow:  0.96,
-  lift:      {upperShell: 28, upperRooms: 28, roof: 76},
+  cam:       {az: 53.05, el: -13},
+  camNarrow: {az: 53.05, el: -7},
+  frame:     ['groundShell', 'upperShell'],
+  fillNarrow:  0.94,
+  lift:      {upperShell: 26, upperRooms: 26, roof: 56},
   alpha:     {groundShell: 1, groundRooms: 0, upperShell: 1, upperRooms: 0, roof: 1},
   tint:      {groundShell: 0, upperShell: 1}
 };
@@ -228,6 +232,7 @@ try {
   const fits = new Map();   // view -> {az, el, target, dist, fov, ox, oy}
   const POINTS_PER_LAYER = 4000;
 
+  const centroids = {};   // layer name -> [x, y, z] average of its sampled vertices
   function collectFramePoints() {
     const v = new THREE.Vector3();
     for (const name of LAYER_NAMES) {
@@ -244,6 +249,9 @@ try {
         }
       }
       framePoints[name] = Float32Array.from(out);
+      const c = [0, 0, 0], n = out.length / 3 || 1;
+      for (let i = 0; i < out.length; i += 3) { c[0] += out[i] / n; c[1] += out[i + 1] / n; c[2] += out[i + 2] / n; }
+      centroids[name] = c;
     }
   }
 
@@ -326,7 +334,9 @@ try {
     const fillY = bleed ? Math.min(0.94, FILL.narrow) : narrow ? FILL.narrow : FILL.wide;
     const k = Math.min(2 * fillX / (x1 - x0), 2 * fillY / (y1 - y0));
     const fov = 2 * Math.atan(Math.tan(p.fov * DEG / 2) / k) / DEG;
-    return {az: p.az, el: p.el, dist: p.dist, target: p.target.slice(), fov, ox: -k * (x0 + x1) / 2, oy: -k * (y0 + y1) / 2};
+    let oy = -k * (y0 + y1) / 2;
+    if (bleed && view.anchorBottom) oy = -0.97 - k * y0;   // bottom of the building near the bottom of the canvas
+    return {az: p.az, el: p.el, dist: p.dist, target: p.target.slice(), fov, ox: -k * (x0 + x1) / 2, oy};
   }
 
   // A canvas that spans the whole screen width is the phone-held-upright layout:
@@ -603,6 +613,9 @@ try {
       ox: mix(a.ox, b.ox, tCam),
       oy: mix(a.oy, b.oy, tCam)
     };
+    // Never below ground: keep the eye at least 2 units up (lift the angle if needed).
+    const eyeY = cam.target[1] + cam.dist * Math.sin(cam.el * DEG);
+    if (eyeY < 2) cam.el = Math.asin(clamp((2 - cam.target[1]) / cam.dist, -1, 1)) / DEG;
     applyCamera(camera, cam);
 
     // Layers: lift, visibility and tint, each on its own staggered clock.
@@ -626,6 +639,8 @@ try {
         material.opacity = alpha[name];
         material.depthWrite = solid;
         if (TINTED.includes(name)) material.color.copy(material.userData.base).lerp(ACCENT, tint[name] * TINT_STRENGTH);
+        // Seen from below, the blue floor would fall into shadow; a little glow keeps it light blue.
+        if (TINTED.includes(name) && material.emissive) material.emissive.copy(ACCENT).multiplyScalar(0.32 * tint[name]);
       }
     }
     // Flights to and from the photo-matched views pass through framings neither
@@ -649,6 +664,14 @@ try {
         applyCamera(camera, {...cam, fov: 2 * Math.atan(Math.tan(cam.fov * DEG / 2) / k) / DEG, ox: cam.ox * k, oy: cam.oy * k});
       }
     }
+    // Where the photo cards grow from (the focus floor) and fly back into (the
+    // middle of the building), in canvas pixels, for story.js.
+    const focus = tint.groundShell > 0.5 ? 'groundShell' : tint.upperShell > 0.5 ? 'upperShell' : null;
+    const toScreen = (p, dy = 0) => { const v = new THREE.Vector3(p[0], p[1] + dy, p[2]).project(camera); return [(v.x + 1) / 2 * canvas.clientWidth, (1 - v.y) / 2 * canvas.clientHeight]; };
+    const core = [0, 0, 0].map((_, i) => (centroids.groundShell[i] + centroids.upperShell[i] + centroids.roof[i]) / 3);
+    core[1] = (centroids.groundShell[1] + (centroids.upperShell[1] + (lift.upperShell || 0)) + (centroids.roof[1] + (lift.roof || 0))) / 3;
+    window.rfdsAnchors = {floor: focus ? toScreen(centroids[focus], lift[focus] || 0) : null, core: toScreen(core)};
+
     shadow.material.opacity = alpha.groundShell;
     shadow.visible = alpha.groundShell > 0.01;
 
